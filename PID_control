@@ -27,19 +27,16 @@ void setup() {
 
 void loop() 
 {
-  if (millis() > time + dt) 
+  if (Serial.available())
   {
-    time = millis();
-
-    distance = ultrasonic.read();
-    Serial.print("Distance = ");
-    Serial.println(distance);
-
-    // 设置震动级别
-    switch(vibration_level) {
+    int vibration_level = Serial.parseInt();
+    Serial.println(vibration_level);
+    switch(vibration_level) 
+    {
       case 0:
         MG995_servo.detach();  // stop rotating 
         break;
+
       case 1:
         MG995_servo.attach(6);
         MG995_servo.write(0);   // CW fast rotate 
@@ -48,6 +45,7 @@ void loop()
         delay(500);
         MG995_servo.detach();
         break;
+
       case 2:
         MG995_servo.attach(6);
         MG995_servo.write(0);  
@@ -56,6 +54,7 @@ void loop()
         delay(300);
         MG995_servo.detach();
         break;
+
       case 3:
         MG995_servo.attach(6);
         MG995_servo.write(0);  
@@ -65,14 +64,23 @@ void loop()
         MG995_servo.detach();
         break;
     }
+  }
 
 
+  if (millis() > time + dt) 
+  {
+    time = millis();
+
+    distance = ultrasonic.read();
+    Serial.print("Distance = ");
+    Serial.println(distance);
+   
     error = distance - target_pos; 
 
     P = kp * error;  
     if (-4 < error && error < 4) 
     {
-      I += ki * error;  // 积分项
+      I += ki * error;     //I(t)=I(t−1) + ki * error
     } else 
     {
       I = 0;  // 防止积分项累积过多
@@ -124,8 +132,7 @@ void loop()
     }
     else
     {
-      Serial.println("Currrntly no shaking, calm down please ")
+      Serial.println("Currrntly no shaking, calm down please ");
     }
   }
 }
-
