@@ -1,10 +1,9 @@
 #include <Servo.h>
 #include <Ultrasonic.h>
-#define Servo_PWM 6   // MG 995  
-
+// #define Servo_PWM 6   // MG 995  
 
 Servo MG996R_servo;  
-Servo MG995_Servo
+Servo MG995_servo;
 int distance;
 
 Ultrasonic ultrasonic(3, 2);
@@ -17,11 +16,12 @@ float kd = 500;
 int dt = 50;  
 float P, I, D, PID;
 unsigned long time;
+int vibration_level = 0;  
 
 void setup() {
   Serial.begin(9600);
-  MG996R_servo.attach(10);   //pin 10 for PID control motor
-  MG995_servo.attach(6);  // pin 6 for vibration making motor
+  MG996R_servo.attach(10);    // pin 10 for PID control motor
+  MG995_servo.attach(6);     // pin 6 for vibration making motor
   time = millis();
 }
 
@@ -35,86 +35,97 @@ void loop()
     Serial.print("Distance = ");
     Serial.println(distance);
 
+    // 设置震动级别
+    switch(vibration_level) {
+      case 0:
+        MG995_servo.detach();  // stop rotating 
+        break;
+      case 1:
+        MG995_servo.attach(6);
+        MG995_servo.write(0);   // CW fast rotate 
+        delay(500);
+        MG995_servo.write(90); // stop
+        delay(500);
+        MG995_servo.detach();
+        break;
+      case 2:
+        MG995_servo.attach(6);
+        MG995_servo.write(0);  
+        delay(300);
+        MG995_servo.write(90); 
+        delay(300);
+        MG995_servo.detach();
+        break;
+      case 3:
+        MG995_servo.attach(6);
+        MG995_servo.write(0);  
+        delay(100);
+        MG995_servo.write(90); 
+        delay(100);
+        MG995_servo.detach();
+        break;
+    }
 
-    MG995_Servo.write(0); //Turn clockwise at high speed
-    delay(3000);
-    MG995_Servo.detach();
-    MG995_Servo.write(180);
-    MG995_Servo.detach(); // stop 
-    
 
-    
     error = distance - target_pos; 
-
-    // if(abs(error) > 2 && abs(error) < 5)
-    // {
-    //   Serial.print("It's shaking slightly now !!")
-    // }
-
-    // if(abs(error) > 5 && abs(error) < 8)
-    // {
-    //   Serial.print("There is currently moderate shaking !!")
-    // }
-
-    // if (abs(error) > 8)
-    // {
-    //   Serial.print("Currently shaking violently !!")
-    // }
-
 
     P = kp * error;  
     if (-4 < error && error < 4) 
     {
-      I += ki * error;      // 這裏計算公式其實是 I(t)=I(t−1)+ ki * error   
+      I += ki * error;  // 积分项
     } else 
     {
-      I = 0;       // 這裏是爲了 使系統中積分項只在error較小的時候起作用，提高系統的穩定性
+      I = 0;  // 防止积分项累积过多
     }
-    D = kd * ((error - previous_error) / dt);   // 計算誤差變化率 以預測未來的趨勢，以防止出現Overshooting 
+    D = kd * ((error - previous_error) / dt);  // 微分项
     PID = P + I + D;    
 
     if (PID > 200) 
-    {    // 限制PID上限 以映射馬達角度 可防止控制器飽和，造成超出執行器之物理能力範圍，會使系統失控
-      PID = 200;    
+    {
+      PID = 200;  // 限制PID上限
     } 
-
     if (PID < -200) 
-    {   // 限制PID下限，同理 
-      PID = -200;  
+    {
+      PID = -200;  // 限制PID下限
     }
 
-    previous_error = error;  //將當前的誤差值保存為前一刻的誤差值，以便在下一次循環中繼續使用  
+    previous_error = error;  
 
-
-    Serial.print("Error: "); 
+    // Serial.print("Error: "); 
     Serial.print(error);
-    Serial.print(" cm  ");
-    Serial.print("   P: ");
-    Serial.print(P);
-    Serial.print("   I: ");
-    Serial.print(I);
-    Serial.print("   D: ");
-    Serial.print(D);
-    Serial.print("   PID: ");
-    Serial.println(PID);     // 以上 分別顯示出當前error， P、I、D 和 三者之和PID，方便檢視和檢查
+    // Serial.print(" cm  ");
+    // Serial.print("   P: ");
+    // Serial.print(P);
+    // Serial.print("   I: ");
+    // Serial.print(I);
+    // Serial.print("   D: ");
+    // Serial.print(D);
+    // Serial.print("   PID: ");
+    // Serial.println(PID);
 
-    // 舵机控制
-    int angle = map(PID, -200, 200, 0, 170);  // 通過映射PID值到馬達的角度控制中，此處將PID 
-    myservo.write(angle);
+    int angle = map(PID, -200, 200, 0, 170);  
+    MG996R_servo.write(angle);
+
 
     if(abs(error) > 2 && abs(error) < 5)
     {
-      Serial.print("It's shaking slightly now !!")   // 透過error的大小可以判斷按當前震動幅度大小，如果error越大，則代表震動幅度
+      Serial.println("It's shaking slightly now !!");
+      // vibration_level = 1;  
     }
-
-    if(abs(error) > 5 && abs(error) < 8) 
+    else if(abs(error) > 5 && abs(error) < 8) 
     {
-      Serial.print("There is currently moderate shaking !!")
+      Serial.println("There is currently moderate shaking !!");
+      // vibration_level = 2;  
     }
-
-    if (abs(error) > 8)
+    else if (abs(error) > 8)
     {
-      Serial.print("Currently shaking violently !!")
+      Serial.println("Currently shaking violently !!");
+      // vibration_level = 3;  
+    }
+    else
+    {
+      Serial.println("Currrntly no shaking, calm down please ")
     }
   }
 }
+
