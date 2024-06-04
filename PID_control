@@ -1,7 +1,10 @@
 #include <Servo.h>
 #include <Ultrasonic.h>
+#define Servo_PWM 6   // MG 995  
 
-Servo myservo;  
+
+Servo MG996R_servo;  
+Servo MG995_Servo
 int distance;
 
 Ultrasonic ultrasonic(3, 2);
@@ -17,7 +20,8 @@ unsigned long time;
 
 void setup() {
   Serial.begin(9600);
-  myservo.attach(10);   //pin 10
+  MG996R_servo.attach(10);   //pin 10 for PID control motor
+  MG995_servo.attach(6);  // pin 6 for vibration making motor
   time = millis();
 }
 
@@ -30,6 +34,14 @@ void loop()
     distance = ultrasonic.read();
     Serial.print("Distance = ");
     Serial.println(distance);
+
+
+    MG995_Servo.write(0); //Turn clockwise at high speed
+    delay(3000);
+    MG995_Servo.detach();
+    MG995_Servo.write(180);
+    MG995_Servo.detach(); // stop 
+    
 
     
     error = distance - target_pos; 
