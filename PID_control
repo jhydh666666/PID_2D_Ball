@@ -1,0 +1,108 @@
+#include <Servo.h>
+#include <Ultrasonic.h>
+
+Servo myservo;  
+int distance;
+
+Ultrasonic ultrasonic(3, 2);
+float target_pos = 15.5;  
+float error;
+float previous_error;
+float kp = 5;  
+float ki = 0.05;
+float kd = 500;
+int dt = 50;  
+float P, I, D, PID;
+unsigned long time;
+
+void setup() {
+  Serial.begin(9600);
+  myservo.attach(10);   //pin 10
+  time = millis();
+}
+
+void loop() 
+{
+  if (millis() > time + dt) 
+  {
+    time = millis();
+
+    distance = ultrasonic.read();
+    Serial.print("Distance = ");
+    Serial.println(distance);
+
+    
+    error = distance - target_pos; 
+
+    // if(abs(error) > 2 && abs(error) < 5)
+    // {
+    //   Serial.print("It's shaking slightly now !!")
+    // }
+
+    // if(abs(error) > 5 && abs(error) < 8)
+    // {
+    //   Serial.print("There is currently moderate shaking !!")
+    // }
+
+    // if (abs(error) > 8)
+    // {
+    //   Serial.print("Currently shaking violently !!")
+    // }
+
+
+    P = kp * error;  
+    if (-4 < error && error < 4) 
+    {
+      I += ki * error;      // 這裏計算公式其實是 I(t)=I(t−1)+ ki * error   
+    } else 
+    {
+      I = 0;       // 這裏是爲了 使系統中積分項只在error較小的時候起作用，提高系統的穩定性
+    }
+    D = kd * ((error - previous_error) / dt);   // 計算誤差變化率 以預測未來的趨勢，以防止出現Overshooting 
+    PID = P + I + D;    
+
+    if (PID > 200) 
+    {    // 限制PID上限 以映射馬達角度 可防止控制器飽和，造成超出執行器之物理能力範圍，會使系統失控
+      PID = 200;    
+    } 
+
+    if (PID < -200) 
+    {   // 限制PID下限，同理 
+      PID = -200;  
+    }
+
+    previous_error = error;  //將當前的誤差值保存為前一刻的誤差值，以便在下一次循環中繼續使用  
+
+
+    Serial.print("Error: "); 
+    Serial.print(error);
+    Serial.print(" cm  ");
+    Serial.print("   P: ");
+    Serial.print(P);
+    Serial.print("   I: ");
+    Serial.print(I);
+    Serial.print("   D: ");
+    Serial.print(D);
+    Serial.print("   PID: ");
+    Serial.println(PID);     // 以上 分別顯示出當前error， P、I、D 和 三者之和PID，方便檢視和檢查
+
+    // 舵机控制
+    int angle = map(PID, -200, 200, 0, 170);  // 通過映射PID值到馬達的角度控制中，此處將PID 
+    myservo.write(angle);
+
+    if(abs(error) > 2 && abs(error) < 5)
+    {
+      Serial.print("It's shaking slightly now !!")   // 透過error的大小可以判斷按當前震動幅度大小，如果error越大，則代表震動幅度
+    }
+
+    if(abs(error) > 5 && abs(error) < 8) 
+    {
+      Serial.print("There is currently moderate shaking !!")
+    }
+
+    if (abs(error) > 8)
+    {
+      Serial.print("Currently shaking violently !!")
+    }
+  }
+}
