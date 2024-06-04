@@ -1,122 +1,117 @@
 #include <Servo.h>
 #include <Ultrasonic.h>
-// #define Servo_PWM 6   // MG 995  
 
-Servo MG996R_servo;  
-Servo MG995_servo;
-int distance;
-
-Ultrasonic ultrasonic(3, 2);
-float target_pos = 15.5;  
-float error;
-float previous_error;
-float kp = 5;  
-float ki = 0.05;
-float kd = 500;
-int dt = 50;  
-float P, I, D, PID;
+Servo MG996R_servo;    //定義MG996R伺服馬達
+Servo MG995_servo;     // 定義MG995伺服馬達
+int distance;          // 定義distance 為 int 型別
+Ultrasonic ultrasonic(3, 2);     // 設定超聲波傳感器接 2、3 腳位
+float target_pos = 15.5;         // 設定目標位置為15.5（cm）， 此為自己定義之中心位置
+float error;                     // 定義 error 為 float型別
+float previous_error;            // 定義previous_error 為float型別
+float kp = 3;   // 2.3   3       // 定義比例係數Kp
+float ki = 0.05;  //0.05         // 定義積分係數Ki
+float kd = 300;  // 200   300    // 定義微分係數Kd
+int dt = 50;                     // 定義dt 用於微分計算 
+float P, I, D, PID;              // 
 unsigned long time;
 int vibration_level = 0;  
 
 void setup() {
-  Serial.begin(9600);
-  MG996R_servo.attach(10);    // pin 10 for PID control motor
-  MG995_servo.attach(6);     // pin 6 for vibration making motor
+  Serial.begin(9600);      
+  MG996R_servo.attach(10);    // 定義 MG996R(PID control motor)連接第10腳位
+  MG995_servo.attach(6);     // 定義 MG995(Vibration making motor)連結第6腳位
   time = millis();
+  
 }
 
 void loop() 
 {
-  if (Serial.available())
-  {
-    int vibration_level = Serial.parseInt();
-    Serial.println(vibration_level);
-    switch(vibration_level) 
-    {
-      case 0:
-        MG995_servo.detach();  // stop rotating 
-        break;
+  // if (Serial.available())   
+  // {
+  //   vibration_level = Serial.parseInt(); 
+  //   Serial.println(vibration_level);  
+  // }
 
-      case 1:
-        MG995_servo.attach(6);
-        MG995_servo.write(0);   // CW fast rotate 
-        delay(500);
-        MG995_servo.write(90); // stop
-        delay(500);
-        MG995_servo.detach();
-        break;
+  // switch(vibration_level)       // 輸入case0 & 1 & 2 & 3， 通過不同的馬達轉動時間來製造不同的震動等級
+  // {
+  //   case 0:   // 無地震
+  //     MG995_servo.detach();  // stop rotating  
+  //     break;
 
-      case 2:
-        MG995_servo.attach(6);
-        MG995_servo.write(0);  
-        delay(300);
-        MG995_servo.write(90); 
-        delay(300);
-        MG995_servo.detach();
-        break;
+  //   case 1:  //輕微地震
+  //     MG995_servo.attach(6);
+  //     MG995_servo.write(0);   // CW fast rotate 
+  //     delay(5000);
+  //     MG995_servo.write(90); // stop
+  //     delay(500);
+  //     MG995_servo.detach();
+  //     break;
 
-      case 3:
-        MG995_servo.attach(6);
-        MG995_servo.write(0);  
-        delay(100);
-        MG995_servo.write(90); 
-        delay(100);
-        MG995_servo.detach();
-        break;
-    }
-  }
+  //   case 2:   //中等地震
+  //     MG995_servo.attach(6);
+  //     MG995_servo.write(0);  
+  //     delay(3000);
+  //     MG995_servo.write(90); 
+  //     delay(300);
+  //     MG995_servo.detach();
+  //     break;
 
+  //   case 3:   // 劇烈地震
+  //     MG995_servo.attach(6);
+  //     MG995_servo.write(0);  
+  //     delay(1000);
+  //     MG995_servo.write(90); 
+  //     delay(100);
+  //     MG995_servo.detach();
+  //     break;
+  // }
 
   if (millis() > time + dt) 
   {
+
     time = millis();
 
-    distance = ultrasonic.read();
-    Serial.print("Distance = ");
-    Serial.println(distance);
+    distance = ultrasonic.read();    // 定義由超聲波傳感器讀到的數值為distance
+    Serial.print("Distance = ");  
+    Serial.println(distance);        // 將distance顯示出來
    
-    error = distance - target_pos; 
+    error = distance - target_pos;   // 定義error等於 distance與設定的目標位置的差值
 
-    P = kp * error;  
+    P = kp * error;   定義P為比例係數乘error的值
     if (-4 < error && error < 4) 
     {
-      I += ki * error;     //I(t)=I(t−1) + ki * error
+      I += ki * error;     // 此為 I(t)=I(t−1) + ki * error 積分項會一直累加
     } else 
     {
-      I = 0;  // 防止积分项累积过多
+      I = 0;   // 如果error的絕對值大於4，則使I = 0，目的是誤差過大若一直累加
     }
-    D = kd * ((error - previous_error) / dt);  // 微分项
-    PID = P + I + D;    
+    D = kd * ((error - previous_error) / dt);  // 微分項
+    PID = P + I + D;    // 定義PID為P、I、D三者之和  
 
     if (PID > 200) 
     {
-      PID = 200;  // 限制PID上限
+      PID = 200;  // 限制PID值上限
     } 
     if (PID < -200) 
     {
-      PID = -200;  // 限制PID下限
+      PID = -200;  // 限制PID值下限
     }
 
-    previous_error = error;  
+    previous_error = error;   //將error 定義為 前一時刻的誤差previous_error,以做下一次循環使用
 
-    // Serial.print("Error: "); 
-    Serial.print(error);
-    // Serial.print(" cm  ");
-    // Serial.print("   P: ");
-    // Serial.print(P);
-    // Serial.print("   I: ");
-    // Serial.print(I);
-    // Serial.print("   D: ");
-    // Serial.print(D);
-    // Serial.print("   PID: ");
-    // Serial.println(PID);
-
-    int angle = map(PID, -200, 200, 0, 170);  
-    MG996R_servo.write(angle);
-
-
-    if(abs(error) > 2 && abs(error) < 5)
-    {
+    Serial.print("Error: "); 
+    Serial.println(error);     // 將error值顯示出來
+    Serial.print("   P: "); 
+    Serial.print(P);           // 將P值顯示出來
+    Serial.print("   I: ");
+    Serial.print(I);           // 將I值顯示出來
+    Serial.print("   D: ");
+    Serial.print(D);           // 將D值顯示出來
+    Serial.print("   PID: ");
+    Serial.println(PID);       // 將PID值顯示出來
+    
+    if(abs(error) > 2 && abs(error) < 5)    // 通過當前的error值來判斷震動的大小
+    {  
       Serial.println("It's shaking slightly now !!");
       // vibration_level = 1;  
     }
@@ -134,5 +129,12 @@ void loop()
     {
       Serial.println("Currrntly no shaking, calm down please ");
     }
+    // delay(1000);
+
+    int angle = map(PID, -200, 200, 0, 170);  // 將馬達的旋轉角度限定在0-170度，並通過-200到200的PID值進行線性映射角度，當PID為0時，馬達的角度為85度
+    MG996R_servo.write(angle);  //將映射出來的角度寫給馬達MG996R 
   }
 }
+
+    
+
